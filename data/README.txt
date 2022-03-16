@@ -1,0 +1,2 @@
+data/yeast_orf_dict.csv: https://raw.githubusercontent.com/j-berg/sgdDictionary/master/yeast_orf_dict.csv
+data/S_cereviseae_compendia_recount_bio_2022_03_16.zip: https://www.refine.bio/compendia?c=normalized
