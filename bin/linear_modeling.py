@@ -29,7 +29,7 @@ Examples:
         regression_type="logistic",
         gaussian_sd=1)
 """
-
+import pandas as pd
 import numpy as np
 from scipy.stats import norm
 from scipy.special import expit as logistic
@@ -183,6 +183,22 @@ def evaluate_mse(
 
     return mse
     
+def evaluate_correlation(
+        predictions,
+        labels):
+    """
+    """
+    
+    #corr_matrix = np.corrcoef(predictions.T, labels.T)
+    corr = pd.DataFrame(np.concatenate((predictions, labels), axis=1)).corr().iloc[0,0]
+    #corr = corr_matrix[0,1]
+    print(predictions)
+    print(labels)
+    print(corr)
+    R_sq = corr**2
+    
+    return R_sq
+
 def test_weights(
         updated_weights, 
         test_data, 
@@ -204,7 +220,11 @@ def test_weights(
         predictions=regression_output,
         labels=test_labels)
     
-    return mse, regression_output
+    r_corr = evaluate_correlation(
+        predictions=regression_output,
+        labels=test_labels)
+
+    return mse, r_corr, regression_output
 
 def newton_solver(
         training_data, training_labels, 
@@ -268,7 +288,7 @@ def newton_solver(
         difference = np.linalg.norm(updated_weights - weights)
         
         # Calculate accuracy of predictions
-        mse, regression_output = test_weights(
+        mse, r_corr, regression_output = test_weights(
             updated_weights=updated_weights, 
             test_data=test_data, 
             test_labels=test_labels, 
@@ -276,7 +296,11 @@ def newton_solver(
         weights = updated_weights
         
         # Report results
-        print("\tIteration: " + str(i+1) + ", Change in weights: " + str(round(difference, 3)) + ", MSE: " + str(round(mse, 5)))
+        print(
+            "\tIteration: " + str(i+1) 
+            + ", Change in weights: " + str(round(difference, 3)) 
+            + ", MSE: " + str(round(mse, 3))
+            + ", R_sq: " + str(round(r_corr, 3)))
         mse_record.append(mse)
         
         # Check if critical level reached, and exit if True
