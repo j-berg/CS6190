@@ -39,7 +39,11 @@ MAX_ITERATIONS = 100
 TOLERANCE = 1e-5
 REGULARIZER = 1
 
-def initialize_weights(training_data, initialization_type="zero", gaussian_mean=0, gaussian_sd=0.2):
+def initialize_weights(
+        training_data, 
+        initialization_type="zero", 
+        gaussian_mean=0, 
+        gaussian_sd=0.2):
     """ Initialize weights 
     type = "zero" or "random"
     """
@@ -56,7 +60,10 @@ def initialize_weights(training_data, initialization_type="zero", gaussian_mean=
         
     return weights[:, np.newaxis]
     
-def perform_regression(data, weights, regression_type="logistic"):
+def perform_regression(
+        data, 
+        weights, 
+        regression_type="logistic"):
     """
     
     regression_type = <logistic, probit>
@@ -124,10 +131,6 @@ def calculate_hessian(
             
     elif regression_type == "probit":
         for i in range(predictions.shape[0]):
-            this_pred  = predictions[i, 0]
-            this_label = labels[i, 0]
-            this_dot = dot_product[i, 0]
-            pdf  = norm.pdf(dot_product[i, 0])
 
             t1 = (1 
                 / (predictions[i, 0] 
@@ -168,28 +171,17 @@ def update_weights(
     
     return updated_weights
 
-def evaluate_accuracy(
+def evaluate_mse(
         predictions,
-        labels,
-        regression_type="logistic"):
+        labels):
     """ Evaluate performance of current weights 
     
     regression_type = <logistic, probit>
     """
     
-    if regression_type == "multiclass":
-        prediction_max = np.argmax(predictions, axis=1)
-        label_max   = np.argmax(labels, axis=1)
-        accuracy = np.sum(prediction_max == label_max) * 100.0 / predictions.shape[0]
-        
-    elif regression_type == "logistic" or regression_type == "probit":
-        #if predictions.ndim == 2:
-        #    predictions = predictions[:,0]
-        predictions[predictions > 0.5] = 1.0
-        predictions[predictions < 1.0] = 0.0
-        accuracy = np.sum(predictions == labels) * 100.0 / predictions.shape[0]
-    
-    return accuracy
+    mse = 1 / predictions.shape[0] * np.sum(predictions - labels)**2
+
+    return mse
     
 def test_weights(
         updated_weights, 
@@ -208,46 +200,11 @@ def test_weights(
         regression_type=regression_type)
     
     # Report accuracy
-    accuracy = evaluate_accuracy(
+    mse = evaluate_mse(
         predictions=regression_output,
-        labels=test_labels,
-        regression_type=regression_type)
+        labels=test_labels)
     
-    return accuracy, regression_output
-
-def func_probit(weights):
-    """
-    """
-    
-    regression_output, dot_product = perform_regression(
-        data=training_data, 
-        weights=weights, 
-        regression_type="probit")
-    log_output = np.log(regression_output + TOLERANCE)
-    result = -1 * np.sum(
-        np.multiply(training_labels, log_output) + np.multiply(1 - training_labels, 1 - log_output)
-    ) + np.sum(weights**2)
-    
-    return result
-
-def func_probit_gradient(weights):
-    """
-    """
-    
-    updated_weights = weights[:, np.newaxis]
-    regression_output, dot_product = perform_regression(
-        data=training_data, 
-        weights=updated_weights, 
-        regression_type="probit")
-    gradient = calculate_gradient(
-        data=training_data, 
-        labels=training_labels, 
-        predictions=regression_output, 
-        dot_product=dot_product, 
-        weights=updated_weights, 
-        regression_type="probit")
-    
-    return gradient[:,0]
+    return mse, regression_output
 
 def newton_solver(
         training_data, training_labels, 
@@ -256,6 +213,7 @@ def newton_solver(
         regression_type="logistic",
         max_iterations=MAX_ITERATIONS,
         tolerance=TOLERANCE,
+        regularizer=REGULARIZER,
         gaussian_mean=0, 
         gaussian_sd=0.2):
     """Perform regression MAP estimation with a Newton-Raphson solver 
@@ -272,6 +230,7 @@ def newton_solver(
     
     # For each iteration up to max
     print("Performing MAP estimation with Newton-Raphson solver...")
+    mse_record = []
     for i in range(max_iterations): 
         
         # Perform regression prediction
@@ -287,7 +246,8 @@ def newton_solver(
             predictions=regression_output, 
             dot_product=dot_product, 
             weights=weights, 
-            regression_type=regression_type)
+            regression_type=regression_type,
+            regularizer=REGULARIZER)
         
         # Calculate Hessian matrix
         hessian = calculate_hessian(
@@ -295,7 +255,8 @@ def newton_solver(
             labels=training_labels,
             predictions=regression_output, 
             dot_product=dot_product, 
-            regression_type=regression_type)
+            regression_type=regression_type,
+            regularizer=REGULARIZER)
         
         # Update weights
         updated_weights = update_weights(
@@ -307,7 +268,7 @@ def newton_solver(
         difference = np.linalg.norm(updated_weights - weights)
         
         # Calculate accuracy of predictions
-        accuracy, regression_output = test_weights(
+        mse, regression_output = test_weights(
             updated_weights=updated_weights, 
             test_data=test_data, 
             test_labels=test_labels, 
@@ -315,57 +276,16 @@ def newton_solver(
         weights = updated_weights
         
         # Report results
-        print("\tIteration: " + str(i+1) + ", Change in weights: " + str(round(difference, 3)) + ", Test accuracy: " + str(round(accuracy, 5)))
+        print("\tIteration: " + str(i+1) + ", Change in weights: " + str(round(difference, 3)) + ", MSE: " + str(round(mse, 5)))
+        mse_record.append(mse)
         
         # Check if critical level reached, and exit if True
         if difference < tolerance:
             print("Training complete.")
-            break
-
-def bfgs_solver(
-        training_data, training_labels, 
-        test_data, test_labels, 
-        initialization_type="zero", 
-        regression_type="logistic",
-        max_iterations=MAX_ITERATIONS,
-        tolerance=TOLERANCE,
-        gaussian_mean=0, 
-        gaussian_sd=0.2):
-    """ Perform regression MAP estimation with a BFGS solver 
+            return weights, mse_record
     
-    regression_type = <logistic, probit>
-    """
+    if difference > tolerance:
+        print("Training was unable to complete.")
+        np.zeros(1), [np.inf]
+        
     
-    # Initialize weights
-    weights = initialize_weights(
-        training_data, 
-        initialization_type=initialization_type,
-        gaussian_mean=gaussian_mean, 
-        gaussian_sd=gaussian_sd)
-    
-    # For each iteration up to max
-    print("Performing MAP estimation with BFGS solver...")
-    
-    if regression_type == "probit":
-        x0 = weights[:,0]
-        probit_params = minimize(
-            func_probit, 
-            x0, 
-            jac=func_probit_gradient, 
-            method='BFGS', 
-            tol=TOLERANCE, 
-            options={
-                'disp': True, # Print convergence messages
-                'maxiter': MAX_ITERATIONS
-            })
-        weights[:,0] = probit_params.x
-   
-    # Calculate accuracy of predictions
-    accuracy, regression_output = test_weights(
-            updated_weights=weights, 
-            test_data=test_data, 
-            test_labels=test_labels, 
-            regression_type=regression_type)
-    
-    # Report results
-    print("\tTest accuracy: " + str(round(accuracy, 5)))
