@@ -189,13 +189,9 @@ def evaluate_correlation(
     """
     """
     
-    #corr_matrix = np.corrcoef(predictions.T, labels.T)
-    corr = pd.DataFrame(np.concatenate((predictions, labels), axis=1)).corr().iloc[0,0]
-    #corr = corr_matrix[0,1]
-    print(predictions)
-    print(labels)
-    print(corr)
-    R_sq = corr**2
+    corr_matrix = pd.DataFrame(np.concatenate((predictions, labels), axis=1))
+    corr = corr_matrix.corr()
+    R_sq = corr.iloc[-1,-2]**2
     
     return R_sq
 
