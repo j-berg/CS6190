@@ -8,7 +8,9 @@ from minepy import MINE
 import concurrent.futures
 from multiprocessing import cpu_count
 
-  
+__output__ = "mic_output2"
+
+
 def split_data(data, label_names, test_fraction=0.2, random_state=42):
     """Split input data into training and testing sets
     
@@ -56,7 +58,7 @@ def run_mic(args):
         sys.stdout.flush()
         
     output = pd.DataFrame(results, index=feature_labels[0], columns=feature_labels[1])
-    output.to_csv(os.path.join("..", "mic_output", _id + ".tsv"), sep="\t")
+    output.to_csv(os.path.join("..", __output__, _id + ".tsv"), sep="\t")
     print(_id + " complete.")
     
 def run_pools(
