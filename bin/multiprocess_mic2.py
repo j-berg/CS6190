@@ -41,7 +41,7 @@ def run_mic(args):
     print("\tRunning {0}...".format(str(_id)))
     sys.stdout.flush()
     
-    X_train, X_test, y_train, y_test, feature_labels = split_data(data, [_id], test_fraction=0.3)
+    X_train, X_test, y_train, y_test, feature_labels = split_data(data, [_id], test_fraction=0.0)
     results = np.zeros(X_train.shape[1])
 
     counter = 0
@@ -53,13 +53,15 @@ def run_mic(args):
         counter += 1
         if counter % 100 == 0:
             print("\t\t{0}: {1} records processed.".format(_id, counter))
-        if counter in [1,5,10,15,20,25,50,75]:
+        if counter in [1,5,10,25,50]:
             print("\t\t{0}: {1} records processed.".format(_id, counter))
         sys.stdout.flush()
         
-    output = pd.DataFrame(results, index=feature_labels[0], columns=feature_labels[1])
-    output.to_csv(os.path.join("..", __output__, _id + ".tsv"), sep="\t")
-    print(_id + " complete.")
+    try:    
+        output = pd.DataFrame(results, index=feature_labels[0], columns=feature_labels[1])
+        output.to_csv(os.path.join("..", __output__, _id + ".tsv"), sep="\t")
+    except:
+        print("! -> Problem writing {0} output to file.".format(_id))
     
 def run_pools(
     func,
@@ -144,7 +146,7 @@ if __name__ == '__main__':
     }
 
     transporter_list = transporters["id"].tolist()
-    arg_iter = [[gene, arg_dict] for gene in transporter_list]
+    arg_iter = [[gene, arg_dict] for gene in transporter_list if gene in data.columns.tolist()]
     run_pools(
         run_mic,
         arg_iter,
